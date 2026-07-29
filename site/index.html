@@ -65,8 +65,9 @@ busanSites.forEach(p=>L.circleMarker([p.lat,p.lng],{radius:9,color:'#e07300',wei
   .addTo(map).bindPopup(`<b>${p.name}</b><br>부산 해양환경 측정망`).on('click',()=>loadBusanStation(p)));
 let busanMarinePromise;
 async function fetchBusanMarine(){
-  if(!busanMarinePromise)busanMarinePromise=fetch('busan-marine.json',{cache:'no-store'}).then(async res=>{
-    const data=await res.json();
+  if(!busanMarinePromise)busanMarinePromise=fetch('busan-marine.json?v=20260729-2',{cache:'no-store'}).then(async res=>{
+    const raw=await res.text();let data;
+    try{data=JSON.parse(raw)}catch{throw new Error('부산 측정망 배포 데이터 형식이 올바르지 않습니다. GitHub Actions를 다시 실행해 주세요.')}
     if(!res.ok||data.error)throw new Error(data.error||res.status);
     const items=data.stations||data?.response?.body?.items?.item||[];
     const newest=new Map();
