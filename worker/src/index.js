@@ -3,7 +3,7 @@ const SERVICES = {
   temperature: 'https://apis.data.go.kr/1192000/apVhdService_Tgcw15/getOpnTgcw15',
   salinity: 'https://apis.data.go.kr/1192000/apVhdService_Tgcsy15/getOpnTgcsy15',
   current: 'https://apis.data.go.kr/1192000/apVhdService_ContOc15/getOpnContOc15',
-  grid2: 'https://apis.data.go.kr/1192000/apVhdService_G2s/getOpnG2s'
+  grid2: 'https://apis.data.go.kr/1192000/apVhdService_G2s/getOpnG2sWFS'
 };
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type' };
 const json = (value, status = 200) => new Response(JSON.stringify(value), { status, headers: { ...cors, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
