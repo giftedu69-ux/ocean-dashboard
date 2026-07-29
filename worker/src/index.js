@@ -30,10 +30,12 @@ export default {
     const params = Object.fromEntries(['gridCd', 'analsYmd', 'analsTime'].map(k => [k, url.searchParams.get(k) || '']));
     if (!valid(params)) return json({ error: 'gridCd, analsYmd, analsTime 형식이 올바르지 않습니다.' }, 400);
     try {
+      // 수온·염분 API는 분석시간을 받지 않으며, 페이지 정보가 필수다.
+      const paged = { gridCd: params.gridCd, analsYmd: params.analsYmd, numOfRows: '1', pageNo: '1' };
       const [temperature, salinity, current] = await Promise.all([
-        fetchXml(SERVICES.temperature, params, env.DATA_GO_KR_SERVICE_KEY),
-        fetchXml(SERVICES.salinity, params, env.DATA_GO_KR_SERVICE_KEY),
-        fetchXml(SERVICES.current, params, env.DATA_GO_KR_SERVICE_KEY)
+        fetchXml(SERVICES.temperature, paged, env.DATA_GO_KR_SERVICE_KEY),
+        fetchXml(SERVICES.salinity, paged, env.DATA_GO_KR_SERVICE_KEY),
+        fetchXml(SERVICES.current, { ...paged, analsTime: params.analsTime }, env.DATA_GO_KR_SERVICE_KEY)
       ]);
       return json({ temperature, salinity, current });
     } catch (error) { return json({ error: '공공 API 호출 실패', detail: error.message }, 502); }
