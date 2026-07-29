@@ -29,7 +29,7 @@
   <div class="shell"><nav class="sidebar"><div class="nav-item">🗺️ 지도</div><div class="region-title">지역별 부이</div><div id="region-menu"></div></nav><main class="workspace"><section class="map-wrap"><div id="map"></div><div id="mobile-controls" class="mobile-controls"><button id="mobile-controls-toggle" class="mobile-controls-toggle" type="button" aria-label="지도 도구 열기" aria-expanded="false">▶</button><div class="mobile-controls-content"><select id="mobile-region" aria-label="지역 선택"><option value="">지역 선택</option></select><select id="mobile-station" aria-label="세부 부이 선택" disabled><option value="">세부 부이 선택</option></select><label class="mobile-layer-toggle"><input id="mobile-temp-layer-toggle" type="checkbox">수온 레이어 표시</label></div></div><div class="map-legend"><div><i></i>인근 부이 참고 영역 · 반경 25km</div><label class="layer-toggle"><input id="temp-layer-toggle" type="checkbox">수온 레이어 표시</label><small id="temp-layer-status" class="layer-note">NIFS·부이 실측 수온 · 관측소 주변 참고</small><div class="temp-scale"><span><b style="background:#2458d3"></b>&lt;10°</span><span><b style="background:#00a7ea"></b>10–15°</span><span><b style="background:#19c58a"></b>15–20°</span><span><b style="background:#f0c419"></b>20–24°</span><span><b style="background:#f47c20"></b>24–27°</span><span><b style="background:#df3948"></b>27°+</span></div></div>
     <aside class="info-panel"><div id="time-section"><div class="eyebrow">관측 시각</div><div id="time" class="time">관측소를 선택하세요.</div></div><h1 id="name" class="station">해양관측부이를 선택하세요</h1>
       <div class="data-row">관측소 코드: <span id="code" class="value">-</span></div><div class="data-row">관측부이 수온: <span id="temp" class="value">-</span></div><div id="nifs-section" class="data-row"><div>어장 수온 <span id="nifs-name" class="muted">조회 전</span></div><div class="nifs-layers">표층 <span id="nifs-surface">-</span> · 중층 <span id="nifs-middle">-</span> · 저층 <span id="nifs-bottom">-</span></div></div><div class="data-row"><span id="sal-label">염분</span>: <span id="sal" class="value">-</span></div><div class="data-row"><span id="cur-label">해수 유속</span>: <span id="cur" class="value">-</span></div><div class="data-row"><span id="dir-label">유향</span>: <span id="dir" class="value">-</span></div><div id="status" class="status">실제 해양관측부이 원을 클릭하면 최신 관측값을 조회합니다.</div>
-      <section id="prediction" class="prediction empty"><div class="prediction-title">🐟 어종 출현 적합도</div><div class="prediction-note">어종별 가중 기하평균 기반의 참고용 적합도 점수입니다. 인근 부이 참고값은 보정됩니다.</div><div id="top-species"></div><button id="show-all-species" class="all-species" disabled>전체 11종 보기</button></section>
+      <section id="prediction" class="prediction empty"><div class="prediction-title">🐟 어종 출현 적합도</div><div class="prediction-note">어종별 가중 기하평균 기반의 참고용 적합도 점수입니다. 범위 밖은 낮은 점수로 완만히 감점하며, 인근 부이 참고값은 보정됩니다.</div><div id="top-species"></div><button id="show-all-species" class="all-species" disabled>전체 11종 보기</button></section>
     </aside><div id="species-modal" class="modal" aria-hidden="true"><div class="modal-card"><div class="modal-head"><span>🐟 전체 어종 적합도</span><button id="close-species-modal" class="modal-close" aria-label="닫기">×</button></div><div class="prediction-note">관측 환경 기반 참고용 지표이며 실제 어획량을 예측하지 않습니다.</div><div id="all-species"></div></div></div></section></main></div>
 <script>
 const API_BASE='https://ocean-data-proxy.chaeeecoma.workers.dev';
@@ -273,7 +273,10 @@ function centeredSI(value,min,max,margin){
   if(!Number.isFinite(value))return null;
   const center=(min+max)/2,half=(max-min)/2,distance=Math.abs(value-center);
   if(distance<=half)return 1-.2*Math.pow(distance/half,2);
-  return Math.max(0,.8*(1-(distance-half)/margin));
+  const outside=distance-half;
+  // 현재 범위값은 검증된 생존 한계가 아니므로, 범위 밖에서도 낮은 적합도를 남기는 완만한 꼬리 감점을 사용합니다.
+  if(outside<=margin)return .15+.65*(1-outside/margin);
+  return Math.max(.03,.15*Math.exp(-(outside-margin)/margin));
 }
 function weightedScore(o,profile,meta={}){
   if([o.wtem,o.slnty,o.crsp].some(value=>!Number.isFinite(Number(value))))return null;
