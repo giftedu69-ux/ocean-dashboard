@@ -23,7 +23,7 @@
   <header class="topbar"><img class="brand-icon" alt="BlueCurrent 해양 아이콘" src="app-icon.svg"><div class="brand">BlueCurrent</div><span class="live">AI Live</span></header>
   <div class="shell"><nav class="sidebar"><div class="nav-item">🗺️ 지도</div></nav><main class="workspace"><section class="map-wrap"><div id="map"></div>
     <aside class="info-panel"><div id="time-section"><div class="eyebrow">관측 시각</div><div id="time" class="time">관측소를 선택하세요.</div></div><h1 id="name" class="station">해양관측부이를 선택하세요</h1>
-      <div class="data-row">관측소 코드: <span id="code" class="value">-</span></div><div class="data-row">관측부이 수온: <span id="temp" class="value">-</span></div><div class="data-row"><div>어장 수온 <span id="nifs-name" class="muted">조회 전</span></div><div class="nifs-layers">표층 <span id="nifs-surface">-</span> · 중층 <span id="nifs-middle">-</span> · 저층 <span id="nifs-bottom">-</span></div></div><div class="data-row">염분: <span id="sal" class="value">-</span></div><div class="data-row">해수 유속: <span id="cur" class="value">-</span></div><div class="data-row">유향: <span id="dir" class="value">-</span></div><div id="status" class="status">실제 해양관측부이 원을 클릭하면 최신 관측값을 조회합니다.</div>
+      <div class="data-row">관측소 코드: <span id="code" class="value">-</span></div><div class="data-row">관측부이 수온: <span id="temp" class="value">-</span></div><div class="data-row"><div>어장 수온 <span id="nifs-name" class="muted">조회 전</span></div><div class="nifs-layers">표층 <span id="nifs-surface">-</span> · 중층 <span id="nifs-middle">-</span> · 저층 <span id="nifs-bottom">-</span></div></div><div class="data-row"><span id="sal-label">염분</span>: <span id="sal" class="value">-</span></div><div class="data-row"><span id="cur-label">해수 유속</span>: <span id="cur" class="value">-</span></div><div class="data-row"><span id="dir-label">유향</span>: <span id="dir" class="value">-</span></div><div id="status" class="status">실제 해양관측부이 원을 클릭하면 최신 관측값을 조회합니다.</div>
       <section id="prediction" class="prediction empty"><div class="prediction-title">🐟 어종 출현 적합도</div><div class="prediction-note">수온·염분·해수 유속 기준의 참고용 적합도입니다. 상위 3종을 표시합니다.</div><div id="top-species"></div><button id="show-all-species" class="all-species" disabled>전체 11종 보기</button></section>
     </aside><div id="species-modal" class="modal" aria-hidden="true"><div class="modal-card"><div class="modal-head"><span>🐟 전체 어종 적합도</span><button id="close-species-modal" class="modal-close" aria-label="닫기">×</button></div><div class="prediction-note">관측 환경 기반 참고용 지표이며 실제 어획량을 예측하지 않습니다.</div><div id="all-species"></div></div></div></section></main></div>
 <script>
@@ -83,6 +83,7 @@ async function fetchBusanMarine(){
   return busanMarinePromise;
 }
 async function loadBusanStation(p){
+  setEnvironmentLabels();
   el('time-section').style.display='none';
   el('name').textContent=p.name;
   el('code').textContent='BUSAN_MARINE';
@@ -107,22 +108,46 @@ async function loadBusanStation(p){
   }
 }
 function display(v,unit=''){return v===undefined||v===null||v===''||v==='-'?'-':String(v)+unit}
+function setEnvironmentLabels(nearby=false){
+  el('sal-label').textContent=nearby?'인근 부이 염분':'염분';
+  el('cur-label').textContent=nearby?'인근 부이 해수 유속':'해수 유속';
+  el('dir-label').textContent=nearby?'인근 부이 유향':'유향';
+}
 function distanceKm(a,b){const r=6371,d=Math.PI/180,dy=(b.lat-a.lat)*d,dx=(b.lng-a.lng)*d;const h=Math.sin(dy/2)**2+Math.cos(a.lat*d)*Math.cos(b.lat*d)*Math.sin(dx/2)**2;return 2*r*Math.asin(Math.sqrt(h))}
 async function loadNifsTemperature(point){const ids=['surface','middle','bottom'];ids.forEach(id=>el('nifs-'+id).textContent='조회 중');el('nifs-name').textContent='(수산과학원)';try{const res=await fetch(`${API_BASE}/api/nifs-temperature`),data=await res.json();if(!res.ok)throw new Error(data.detail||data.error||res.status);const stations=(data.stations||[]).filter(s=>s.layers&&Object.keys(s.layers).length);if(!stations.length)throw new Error('관측소 데이터 없음');const near=stations.reduce((best,s)=>!best||distanceKm(point,s)<distanceKm(point,best)?s:best,null);el('nifs-name').textContent=`(${near.name}, 최근접 ${distanceKm(point,near).toFixed(0)}km)`;ids.forEach(id=>el('nifs-'+id).textContent=display(near.layers[id],' °C'));}catch(error){el('nifs-name').textContent='(수산과학원 데이터 없음)';ids.forEach(id=>el('nifs-'+id).textContent='-')}}
+async function loadNearestBuoyEnvironment(point){
+  setEnvironmentLabels(true);
+  ['sal','cur','dir'].forEach(id=>el(id).textContent='조회 중');
+  const near=buoys.reduce((best,p)=>!best||distanceKm(point,p)<distanceKm(point,best)?p:best,null);
+  try{
+    const res=await fetch(`${API_BASE}/api/buoy?obsCode=${encodeURIComponent(near.code)}`),data=await res.json();
+    if(!res.ok||!data.observation)throw new Error(data.detail||data.error||data.message||'최신 관측값이 없습니다.');
+    const o=data.observation, distance=distanceKm(point,near).toFixed(0);
+    el('sal').textContent=display(o.slnty,' PSU');
+    el('cur').textContent=display(o.crsp,' cm/s');
+    el('dir').textContent=display(o.crdir,'°');
+    return `${near.name} 부이 · 약 ${distance}km · ${o.obsrvnDt||'관측시각 미제공'}`;
+  }catch(error){
+    ['sal','cur','dir'].forEach(id=>el(id).textContent='데이터 없음');
+    return `인근 해양관측부이 자료를 불러오지 못했습니다: ${error.message}`;
+  }
+}
 async function loadNifsStation(s){
   el('time-section').style.display='block';
+  setEnvironmentLabels(true);
   const layers=s.layers||{}, dist='';
   el('name').textContent=s.name;
   el('code').textContent='NIFS_'+s.code;
   el('time').textContent=s.observedAt||'관측시각 미제공';
   el('temp').textContent=display(layers.surface,' °C');
-  el('sal').textContent='미제공';
-  el('cur').textContent='미제공';
-  el('dir').textContent='미제공';
+  el('sal').textContent='조회 중';
+  el('cur').textContent='조회 중';
+  el('dir').textContent='조회 중';
   el('nifs-name').textContent='(국립수산과학원 실측)';
   ['surface','middle','bottom'].forEach(id=>el('nifs-'+id).textContent=display(layers[id],' °C'));
   clearSuitability();
-  el('status').textContent='조회 완료 — 국립수산과학원 실시간 어장 관측소의 실제 수온입니다. 염분·유속·유향은 이 API에서 제공하지 않습니다.';
+  const nearbySource=await loadNearestBuoyEnvironment(s);
+  el('status').textContent=`국립수산과학원 실시간 어장 관측소 수온입니다. 염분·유속·유향은 별도 관측소 값: ${nearbySource}`;
 }
 
 function metricScore(value,min,max,margin){if(!Number.isFinite(value))return null;if(value>=min&&value<=max)return 100;const gap=value<min?min-value:value-max;return Math.max(0,Math.round(100*(1-gap/margin)))}
@@ -136,5 +161,5 @@ function clearSuitability(){suitability=[];renderSuitability();el('prediction').
 el('show-all-species').addEventListener('click',()=>{el('species-modal').classList.add('open');el('species-modal').setAttribute('aria-hidden','false')});
 el('close-species-modal').addEventListener('click',()=>{el('species-modal').classList.remove('open');el('species-modal').setAttribute('aria-hidden','true')});
 el('species-modal').addEventListener('click',e=>{if(e.target===el('species-modal'))el('close-species-modal').click()});
-async function load(p){el('time-section').style.display='block';el('name').textContent=p.name;el('code').textContent=p.code;el('status').textContent='실제 관측값을 조회 중입니다…';['temp','sal','cur','dir'].forEach(id=>el(id).textContent='조회 중');['surface','middle','bottom'].forEach(id=>el('nifs-'+id).textContent='-');el('nifs-name').textContent='조회 중';clearSuitability();try{const res=await fetch(`${API_BASE}/api/buoy?obsCode=${encodeURIComponent(p.code)}`),data=await res.json();if(!res.ok)throw new Error(data.detail||data.error||res.status);if(!data.observation)throw new Error(data.message||'최신 관측값이 없습니다.');const o=data.observation;el('time').textContent=o.obsrvnDt||'관측시각 미제공';el('temp').textContent=display(o.wtem,' °C');el('sal').textContent=display(o.slnty,' PSU');el('cur').textContent=display(o.crsp,' cm/s');el('dir').textContent=display(o.crdir,'°');updateSuitability(o);loadNifsTemperature(p);el('status').textContent='조회 완료 — 실제 해양관측부이 최신 관측값';}catch(error){el('status').textContent='API 연동 실패: '+error.message;['temp','sal','cur','dir'].forEach(id=>el(id).textContent='데이터 없음')}}
+async function load(p){setEnvironmentLabels();el('time-section').style.display='block';el('name').textContent=p.name;el('code').textContent=p.code;el('status').textContent='실제 관측값을 조회 중입니다…';['temp','sal','cur','dir'].forEach(id=>el(id).textContent='조회 중');['surface','middle','bottom'].forEach(id=>el('nifs-'+id).textContent='-');el('nifs-name').textContent='조회 중';clearSuitability();try{const res=await fetch(`${API_BASE}/api/buoy?obsCode=${encodeURIComponent(p.code)}`),data=await res.json();if(!res.ok)throw new Error(data.detail||data.error||res.status);if(!data.observation)throw new Error(data.message||'최신 관측값이 없습니다.');const o=data.observation;el('time').textContent=o.obsrvnDt||'관측시각 미제공';el('temp').textContent=display(o.wtem,' °C');el('sal').textContent=display(o.slnty,' PSU');el('cur').textContent=display(o.crsp,' cm/s');el('dir').textContent=display(o.crdir,'°');updateSuitability(o);loadNifsTemperature(p);el('status').textContent='조회 완료 — 실제 해양관측부이 최신 관측값';}catch(error){el('status').textContent='API 연동 실패: '+error.message;['temp','sal','cur','dir'].forEach(id=>el(id).textContent='데이터 없음')}}
 </script></body></html>
