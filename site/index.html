@@ -21,7 +21,7 @@
 </head>
 <body>
   <header class="topbar"><img class="brand-icon" alt="BlueCurrent 해양 아이콘" src="app-icon.svg"><div class="brand">BlueCurrent</div><span class="live">AI Live</span></header>
-  <div class="shell"><nav class="sidebar"><div class="nav-item">🗺️ 지도</div><div class="region-title">지역별 부이</div><div id="region-menu"></div></nav><main class="workspace"><section class="map-wrap"><div id="map"></div><div class="map-legend"><div><i></i>인근 부이 참고 영역 · 반경 25km</div><label class="layer-toggle"><input id="temp-layer-toggle" type="checkbox">수온 레이어 표시</label><small class="layer-note">NIFS·부이 실측 수온 · 관측소 주변 참고</small><div class="temp-scale"><span><b style="background:#2458d3"></b>&lt;10°</span><span><b style="background:#00a7ea"></b>10–15°</span><span><b style="background:#19c58a"></b>15–20°</span><span><b style="background:#f0c419"></b>20–24°</span><span><b style="background:#f47c20"></b>24–27°</span><span><b style="background:#df3948"></b>27°+</span></div></div>
+  <div class="shell"><nav class="sidebar"><div class="nav-item">🗺️ 지도</div><div class="region-title">지역별 부이</div><div id="region-menu"></div></nav><main class="workspace"><section class="map-wrap"><div id="map"></div><div class="map-legend"><div><i></i>인근 부이 참고 영역 · 반경 25km</div><label class="layer-toggle"><input id="temp-layer-toggle" type="checkbox">수온 레이어 표시</label><small id="temp-layer-status" class="layer-note">NIFS·부이 실측 수온 · 관측소 주변 참고</small><div class="temp-scale"><span><b style="background:#2458d3"></b>&lt;10°</span><span><b style="background:#00a7ea"></b>10–15°</span><span><b style="background:#19c58a"></b>15–20°</span><span><b style="background:#f0c419"></b>20–24°</span><span><b style="background:#f47c20"></b>24–27°</span><span><b style="background:#df3948"></b>27°+</span></div></div>
     <aside class="info-panel"><div id="time-section"><div class="eyebrow">관측 시각</div><div id="time" class="time">관측소를 선택하세요.</div></div><h1 id="name" class="station">해양관측부이를 선택하세요</h1>
       <div class="data-row">관측소 코드: <span id="code" class="value">-</span></div><div class="data-row">관측부이 수온: <span id="temp" class="value">-</span></div><div class="data-row"><div>어장 수온 <span id="nifs-name" class="muted">조회 전</span></div><div class="nifs-layers">표층 <span id="nifs-surface">-</span> · 중층 <span id="nifs-middle">-</span> · 저층 <span id="nifs-bottom">-</span></div></div><div class="data-row"><span id="sal-label">염분</span>: <span id="sal" class="value">-</span></div><div class="data-row"><span id="cur-label">해수 유속</span>: <span id="cur" class="value">-</span></div><div class="data-row"><span id="dir-label">유향</span>: <span id="dir" class="value">-</span></div><div id="status" class="status">실제 해양관측부이 원을 클릭하면 최신 관측값을 조회합니다.</div>
       <section id="prediction" class="prediction empty"><div class="prediction-title">🐟 어종 출현 적합도</div><div class="prediction-note">수온·염분·해수 유속 기준의 참고용 적합도입니다. 상위 3종을 표시합니다.</div><div id="top-species"></div><button id="show-all-species" class="all-species" disabled>전체 11종 보기</button></section>
@@ -116,6 +116,8 @@ async function showTemperatureLayer(){
       const color=temperatureColor(temp);
       L.circle([s.lat,s.lng],{radius:18000,color,weight:1,opacity:.75,fillColor:color,fillOpacity:.25,interactive:false}).addTo(temperatureLayer);
     });
+    temperatureLayer.addTo(map);
+    el('temp-layer-status').textContent='NIFS 수온 표시됨 · 부이 수온 불러오는 중…';
     for(let index=0;index<buoys.length;index+=4){
       const batch=buoys.slice(index,index+4);
       await Promise.all(batch.map(async buoy=>{
@@ -128,12 +130,14 @@ async function showTemperatureLayer(){
       }));
     }
     temperatureLayerLoaded=true;
+    el('temp-layer-status').textContent='NIFS·부이 실측 수온 · 관측소 주변 참고';
   }
-  temperatureLayer.addTo(map);
+  if(el('temp-layer-toggle').checked)temperatureLayer.addTo(map);
 }
 el('temp-layer-toggle').addEventListener('change',async event=>{
-  if(!event.target.checked){map.removeLayer(temperatureLayer);return}
-  try{await showTemperatureLayer()}catch(error){event.target.checked=false;alert('수온 레이어를 불러오지 못했습니다: '+error.message)}
+  if(!event.target.checked){map.removeLayer(temperatureLayer);el('temp-layer-status').textContent='NIFS·부이 실측 수온 · 관측소 주변 참고';return}
+  el('temp-layer-status').textContent='수온 레이어 불러오는 중…';
+  try{await showTemperatureLayer()}catch(error){event.target.checked=false;el('temp-layer-status').textContent='수온 레이어를 불러오지 못했습니다.';alert('수온 레이어를 불러오지 못했습니다: '+error.message)}
 });
 
 // 부산 해양환경 측정망은 최신성이 낮아 지도 마커에서는 제외합니다.
