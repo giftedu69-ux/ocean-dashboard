@@ -53,6 +53,48 @@ async function addNifsMarkers(){
 }
 addNifsMarkers();
 
+// 부산 연안 수질 측정망: 수온·염분은 실제 측정값이며 분기별 측정시점을 함께 표시합니다.
+const busanSites=[
+  {name:'5부두',lat:35.115,lng:129.047},{name:'감천항',lat:35.078,lng:129.000},{name:'광안리',lat:35.153,lng:129.118},
+  {name:'고리',lat:35.221,lng:129.258},{name:'남항',lat:35.077,lng:129.057},{name:'다대포',lat:35.046,lng:128.966},
+  {name:'녹산',lat:35.095,lng:128.837},{name:'송도',lat:35.076,lng:129.021},{name:'해운대',lat:35.158,lng:129.160},
+  {name:'이기대',lat:35.115,lng:129.119},{name:'신호',lat:35.088,lng:128.878},{name:'장림',lat:35.081,lng:128.962},
+  {name:'동천',lat:35.130,lng:129.050},{name:'대변',lat:35.238,lng:129.250},{name:'민락동',lat:35.154,lng:129.130}
+];
+busanSites.forEach(p=>L.circleMarker([p.lat,p.lng],{radius:9,color:'#e07300',weight:3,fillColor:'#ffc14f',fillOpacity:.9})
+  .addTo(map).bindPopup(`<b>${p.name}</b><br>부산 해양환경 측정망`).on('click',()=>loadBusanStation(p)));
+let busanMarinePromise;
+async function fetchBusanMarine(){
+  if(!busanMarinePromise)busanMarinePromise=fetch(`${API_BASE}/api/busan-marine`).then(async res=>{
+    const data=await res.json();if(!res.ok)throw new Error(data.detail||data.error||res.status);return data.stations||[];
+  }).catch(error=>{busanMarinePromise=null;throw error});
+  return busanMarinePromise;
+}
+async function loadBusanStation(p){
+  el('name').textContent=p.name;
+  el('code').textContent='BUSAN_MARINE';
+  el('time').textContent='부산 해양환경 측정망 조회 중';
+  el('status').textContent='부산 연안 수온·염분 실측값을 조회 중입니다…';
+  ['temp','sal','cur','dir'].forEach(id=>el(id).textContent='조회 중');
+  ['surface','middle','bottom'].forEach(id=>el('nifs-'+id).textContent='-');
+  el('nifs-name').textContent='(해당 없음)';
+  clearSuitability();
+  try{
+    const stations=await fetchBusanMarine();
+    const compact=v=>String(v||'').replace(/\s/g,'').replace('해수욕장','');
+    const station=stations.find(s=>compact(s.name)===compact(p.name)||compact(s.name).includes(compact(p.name)));
+    if(!station)throw new Error('해당 지점의 제공 데이터가 없습니다.');
+    el('time').textContent=`${station.observedYear||'관측연도 미제공'}년 ${station.observedQuarter?station.observedQuarter+'분기':''} 측정`;
+    el('temp').textContent=display(station.temperature,' °C');
+    el('sal').textContent=display(station.salinity,' PSU');
+    el('cur').textContent='조류예보 연동 예정';
+    el('dir').textContent='조류예보 연동 예정';
+    el('status').textContent='조회 완료 — 부산광역시 해양환경 측정망 실측 수온·염분';
+  }catch(error){
+    ['temp','sal','cur','dir'].forEach(id=>el(id).textContent='데이터 없음');
+    el('status').textContent='부산 측정망 API 연동 실패: '+error.message;
+  }
+}
 function display(v,unit=''){return v===undefined||v===null||v===''||v==='-'?'-':String(v)+unit}
 function distanceKm(a,b){const r=6371,d=Math.PI/180,dy=(b.lat-a.lat)*d,dx=(b.lng-a.lng)*d;const h=Math.sin(dy/2)**2+Math.cos(a.lat*d)*Math.cos(b.lat*d)*Math.sin(dx/2)**2;return 2*r*Math.asin(Math.sqrt(h))}
 async function loadNifsTemperature(point){const ids=['surface','middle','bottom'];ids.forEach(id=>el('nifs-'+id).textContent='조회 중');el('nifs-name').textContent='(수산과학원)';try{const res=await fetch(`${API_BASE}/api/nifs-temperature`),data=await res.json();if(!res.ok)throw new Error(data.detail||data.error||res.status);const stations=(data.stations||[]).filter(s=>s.layers&&Object.keys(s.layers).length);if(!stations.length)throw new Error('관측소 데이터 없음');const near=stations.reduce((best,s)=>!best||distanceKm(point,s)<distanceKm(point,best)?s:best,null);el('nifs-name').textContent=`(${near.name}, 최근접 ${distanceKm(point,near).toFixed(0)}km)`;ids.forEach(id=>el('nifs-'+id).textContent=display(near.layers[id],' °C'));}catch(error){el('nifs-name').textContent='(수산과학원 데이터 없음)';ids.forEach(id=>el('nifs-'+id).textContent='-')}}
