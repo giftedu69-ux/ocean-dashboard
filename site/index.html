@@ -99,24 +99,39 @@ async function loadBusanStation(p){
     if(!station)throw new Error('해당 지점의 제공 데이터가 없습니다.');
     el('temp').textContent=display(station.temperature,' °C');
     el('sal').textContent=display(station.salinity,' PSU');
-    el('cur').textContent='조류예보 연동 예정';
-    el('dir').textContent='조류예보 연동 예정';
-    el('status').textContent='조회 완료 — 부산광역시 해양환경 측정망 실측 수온·염분';
+    const nearbySource=await loadNearestBuoyFlow(p);
+    el('status').textContent=`부산 해양환경 측정망 수온·염분입니다. 유속·유향은 별도 관측소 값: ${nearbySource}`;
   }catch(error){
     ['temp','sal','cur','dir'].forEach(id=>el(id).textContent='데이터 없음');
     el('status').textContent='부산 측정망 API 연동 실패: '+error.message;
   }
 }
 function display(v,unit=''){return v===undefined||v===null||v===''||v==='-'?'-':String(v)+unit}
-function setEnvironmentLabels(nearby=false){
-  el('sal-label').textContent=nearby?'인근 부이 염분':'염분';
-  el('cur-label').textContent=nearby?'인근 부이 해수 유속':'해수 유속';
-  el('dir-label').textContent=nearby?'인근 부이 유향':'유향';
+function setEnvironmentLabels(mode='local'){
+  el('sal-label').textContent=mode==='all-nearby'?'인근 부이 염분':'염분';
+  el('cur-label').textContent=mode==='local'?'해수 유속':'인근 부이 해수 유속';
+  el('dir-label').textContent=mode==='local'?'유향':'인근 부이 유향';
 }
 function distanceKm(a,b){const r=6371,d=Math.PI/180,dy=(b.lat-a.lat)*d,dx=(b.lng-a.lng)*d;const h=Math.sin(dy/2)**2+Math.cos(a.lat*d)*Math.cos(b.lat*d)*Math.sin(dx/2)**2;return 2*r*Math.asin(Math.sqrt(h))}
 async function loadNifsTemperature(point){const ids=['surface','middle','bottom'];ids.forEach(id=>el('nifs-'+id).textContent='조회 중');el('nifs-name').textContent='(수산과학원)';try{const res=await fetch(`${API_BASE}/api/nifs-temperature`),data=await res.json();if(!res.ok)throw new Error(data.detail||data.error||res.status);const stations=(data.stations||[]).filter(s=>s.layers&&Object.keys(s.layers).length);if(!stations.length)throw new Error('관측소 데이터 없음');const near=stations.reduce((best,s)=>!best||distanceKm(point,s)<distanceKm(point,best)?s:best,null);el('nifs-name').textContent=`(${near.name}, 최근접 ${distanceKm(point,near).toFixed(0)}km)`;ids.forEach(id=>el('nifs-'+id).textContent=display(near.layers[id],' °C'));}catch(error){el('nifs-name').textContent='(수산과학원 데이터 없음)';ids.forEach(id=>el('nifs-'+id).textContent='-')}}
+async function loadNearestBuoyFlow(point){
+  setEnvironmentLabels('flow-nearby');
+  ['cur','dir'].forEach(id=>el(id).textContent='조회 중');
+  const near=buoys.reduce((best,p)=>!best||distanceKm(point,p)<distanceKm(point,best)?p:best,null);
+  try{
+    const res=await fetch(`${API_BASE}/api/buoy?obsCode=${encodeURIComponent(near.code)}`),data=await res.json();
+    if(!res.ok||!data.observation)throw new Error(data.detail||data.error||data.message||'최신 관측값이 없습니다.');
+    const o=data.observation, distance=distanceKm(point,near).toFixed(0);
+    el('cur').textContent=display(o.crsp,' cm/s');
+    el('dir').textContent=display(o.crdir,'°');
+    return `${near.name} 부이 · 약 ${distance}km · ${o.obsrvnDt||'관측시각 미제공'}`;
+  }catch(error){
+    ['cur','dir'].forEach(id=>el(id).textContent='데이터 없음');
+    return `인근 해양관측부이 자료를 불러오지 못했습니다: ${error.message}`;
+  }
+}
 async function loadNearestBuoyEnvironment(point){
-  setEnvironmentLabels(true);
+  setEnvironmentLabels('all-nearby');
   ['sal','cur','dir'].forEach(id=>el(id).textContent='조회 중');
   const near=buoys.reduce((best,p)=>!best||distanceKm(point,p)<distanceKm(point,best)?p:best,null);
   try{
@@ -134,7 +149,7 @@ async function loadNearestBuoyEnvironment(point){
 }
 async function loadNifsStation(s){
   el('time-section').style.display='block';
-  setEnvironmentLabels(true);
+  setEnvironmentLabels('all-nearby');
   const layers=s.layers||{}, dist='';
   el('name').textContent=s.name;
   el('code').textContent='NIFS_'+s.code;
