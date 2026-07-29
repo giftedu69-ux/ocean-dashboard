@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>스마트 해양 정보 플랫폼</title>
+  <title>BlueCurrent</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
@@ -20,7 +20,7 @@
   </style>
 </head>
 <body>
-  <header class="topbar"><img class="brand-icon" alt="해양 앱 아이콘" src="data:image/png;base64,${icon}"><div class="brand">스마트 해양 정보 플랫폼</div><span class="live">AI Live</span></header>
+  <header class="topbar"><img class="brand-icon" alt="BlueCurrent 해양 아이콘" src="app-icon.svg"><div class="brand">BlueCurrent</div><span class="live">AI Live</span></header>
   <div class="shell"><nav class="sidebar"><div class="nav-item">🗺️ 지도</div></nav><main class="workspace"><section class="map-wrap"><div id="map"></div>
     <aside class="info-panel"><div class="eyebrow">관측 시각</div><div id="time" class="time">관측소를 선택하세요.</div><h1 id="name" class="station">해양관측부이를 선택하세요</h1>
       <div class="data-row">관측소 코드: <span id="code" class="value">-</span></div><div class="data-row">수온: <span id="temp" class="value">-</span></div><div class="data-row">염분: <span id="sal" class="value">-</span></div><div class="data-row">해수 유속: <span id="cur" class="value">-</span></div><div class="data-row">유향: <span id="dir" class="value">-</span></div><div id="status" class="status">실제 해양관측부이 원을 클릭하면 최신 관측값을 조회합니다.</div>
