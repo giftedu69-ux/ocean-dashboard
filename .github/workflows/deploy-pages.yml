@@ -7,6 +7,8 @@ on:
       - 'site/**'
       - '.github/workflows/deploy-pages.yml'
   workflow_dispatch:
+  schedule:
+    - cron: '17 */12 * * *'
 
 permissions:
   contents: read
@@ -25,6 +27,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Download Busan marine monitoring data
+        env:
+          SERVICE_KEY: ${{ secrets.DATA_GO_KR_SERVICE_KEY }}
+        run: |
+          if [ -z "$SERVICE_KEY" ]; then
+            printf '{"response":{"body":{"items":{"item":[]}},"error":"GitHub Secret DATA_GO_KR_SERVICE_KEY가 없습니다."}' > site/busan-marine.json
+            exit 0
+          fi
+          curl --fail --silent --show-error --get \
+            'http://apis.data.go.kr/6260000/BusanMrnEnvrnInfoService/getMrnEnvrnInfo' \
+            --data-urlencode "serviceKey=$SERVICE_KEY" \
+            --data-urlencode 'pageNo=1' \
+            --data-urlencode 'numOfRows=2000' \
+            --data-urlencode 'resultType=json' \
+            -o site/busan-marine.json
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
