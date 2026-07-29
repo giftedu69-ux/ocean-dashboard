@@ -1,5 +1,6 @@
 const OBSERVATION_API = 'https://apis.data.go.kr/1192136/twRecent/GetTWRecentApiService';
 const NIFS_API = 'https://www.nifs.go.kr/OpenAPI_json';
+const BUSAN_MARINE_API = 'https://apis.data.go.kr/6260000/BusanMrnEnvrnInfoService/getMrnEnvrnInfo';
 const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
@@ -74,6 +75,32 @@ export default {
         return json({ stations: nifsStations(observations, codes), source: '국립수산과학원 실시간 해양수산환경 관측시스템' });
       } catch (error) {
         return json({ error: '수산과학원 어장 수온 API 호출 실패', detail: error.message }, 502);
+      }
+    }
+    if (url.pathname === '/api/busan-marine') {
+      if (!env.DATA_GO_KR_SERVICE_KEY) return json({ error: 'Worker secret DATA_GO_KR_SERVICE_KEY가 없습니다.' }, 500);
+      const target = new URL(BUSAN_MARINE_API);
+      target.search = new URLSearchParams({
+        serviceKey: env.DATA_GO_KR_SERVICE_KEY, pageNo: '1', numOfRows: '100', resultType: 'json'
+      }).toString();
+      try {
+        const response = await fetch(target, { headers: { Accept: 'application/json' } });
+        const raw = await response.text();
+        if (!response.ok) throw new Error(`공공 API HTTP ${response.status}: ${raw.slice(0, 300)}`);
+        const payload = JSON.parse(raw);
+        assertSuccess(payload);
+        const stations = getItems(payload).map(item => ({
+          name: item.site || item.siteNm || item.siteName || '',
+          observedYear: item.inspecYy || '',
+          observedQuarter: item.inspecQt || '',
+          temperature: item.water14 ?? null,
+          salinity: item.water16 ?? null,
+          dissolvedOxygen: item.water13 ?? null,
+          quality: item.water02 || ''
+        })).filter(item => item.name);
+        return json({ stations, source: '부산광역시 해양환경 측정망' });
+      } catch (error) {
+        return json({ error: '부산 해양환경 측정망 API 호출 실패', detail: error.message }, 502);
       }
     }
     if (url.pathname !== '/api/buoy') return json({ error: 'Not found' }, 404);
