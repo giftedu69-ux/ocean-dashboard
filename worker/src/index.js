@@ -1,6 +1,6 @@
 const OBSERVATION_API = 'https://apis.data.go.kr/1192136/twRecent/GetTWRecentApiService';
 const NIFS_API = 'https://www.nifs.go.kr/OpenAPI_json';
-const BUSAN_MARINE_API = 'https://apis.data.go.kr/6260000/BusanMrnEnvrnInfoService/getMrnEnvrnInfo';
+const BUSAN_MARINE_API = 'http://apis.data.go.kr/6260000/BusanMrnEnvrnInfoService/getMrnEnvrnInfo';
 const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
@@ -84,7 +84,7 @@ export default {
         serviceKey: env.DATA_GO_KR_SERVICE_KEY, pageNo: '1', numOfRows: '100', resultType: 'json'
       }).toString();
       try {
-        const response = await fetch(target, { headers: { Accept: 'application/json' } });
+        const response = await fetch(target, { headers: { Accept: 'application/json', 'User-Agent': 'BlueCurrent/1.0 public-data-dashboard' } });
         const raw = await response.text();
         if (!response.ok) throw new Error(`공공 API HTTP ${response.status}: ${raw.slice(0, 300)}`);
         const payload = JSON.parse(raw);
