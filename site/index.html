@@ -199,7 +199,7 @@ async function loadBusanStation(p){
     el('temp').textContent=display(station.temperature,' °C');
     el('sal').textContent=display(station.salinity,' PSU');
     const nearby=await loadNearestBuoyFlow(p);
-    if(nearby.observation)updateSuitability({wtem:Number(station.temperature),slnty:Number(station.salinity),crsp:Number(nearby.observation.crsp)});
+    if(nearby.observation)updateSuitability({wtem:Number(station.temperature),slnty:Number(station.salinity),crsp:Number(nearby.observation.crsp)},{referenceCount:1,ownDirection:false});
     else clearSuitability();
     el('status').textContent=`부산 해양환경 측정망 수온·염분과 인근 부이 유속을 조합한 참고용 적합도입니다. 유속·유향 출처: ${nearby.source}`;
   }catch(error){
@@ -264,7 +264,7 @@ async function loadNifsStation(s){
   ['surface','middle','bottom'].forEach(id=>el('nifs-'+id).textContent=display(layers[id],' °C'));
   clearSuitability();
   const nearby=await loadNearestBuoyEnvironment(s);
-  if(nearby.observation)updateSuitability({wtem:Number(layers.surface),slnty:Number(nearby.observation.slnty),crsp:Number(nearby.observation.crsp)});
+  if(nearby.observation)updateSuitability({wtem:Number(layers.surface),slnty:Number(nearby.observation.slnty),crsp:Number(nearby.observation.crsp)},{referenceCount:2,ownDirection:false});
   else clearSuitability();
   el('status').textContent=`국립수산과학원 수온과 인근 부이 환경값을 조합한 참고용 적합도입니다. 인근 부이 출처: ${nearby.source}`;
 }
