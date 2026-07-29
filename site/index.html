@@ -288,13 +288,13 @@ async function fillNearbyBuoyGaps(point, observation){
   for(const candidate of candidates){
     if(!missing.some(([key])=>!hasObservedValue(observation[key])))break;
     try{
-      const response=await fetch(\`${API_BASE}/api/buoy?obsCode=${encodeURIComponent(candidate.code)}\`),data=await response.json();
+      const response=await fetch(`${API_BASE}/api/buoy?obsCode=${encodeURIComponent(candidate.code)}`),data=await response.json();
       const source=data.observation;
       if(!response.ok||!source)continue;
       missing.forEach(([key,labelId,label])=>{
         if(!hasObservedValue(observation[key])&&hasObservedValue(source[key])){
           observation[key]=source[key];
-          el(labelId).textContent=\`${label} (인근 부이 참고)\`;
+          el(labelId).textContent=`${label} (인근 부이 참고)`;
           filled.push({label,name:candidate.name,distance:distanceKm(point,candidate).toFixed(0),time:source.obsrvnDt||'관측시각 미제공'});
         }
       });
@@ -309,16 +309,16 @@ async function load(p){
   ['temp','sal','cur','dir'].forEach(id=>el(id).textContent='조회 중');
   ['surface','middle','bottom'].forEach(id=>el('nifs-'+id).textContent='-');el('nifs-name').textContent='조회 중';clearSuitability();
   try{
-    const res=await fetch(\`${API_BASE}/api/buoy?obsCode=${encodeURIComponent(p.code)}\`),data=await res.json();
+    const res=await fetch(`${API_BASE}/api/buoy?obsCode=${encodeURIComponent(p.code)}`),data=await res.json();
     if(!res.ok)throw new Error(data.detail||data.error||res.status);if(!data.observation)throw new Error(data.message||'최신 관측값이 없습니다.');
     const o=data.observation;
     const references=await fillNearbyBuoyGaps(p,o);
     el('time').textContent=o.obsrvnDt||'관측시각 미제공';el('temp').textContent=display(o.wtem,' °C');el('sal').textContent=display(o.slnty,' PSU');el('cur').textContent=display(o.crsp,' cm/s');el('dir').textContent=display(o.crdir,'°');
     updateSuitability(o);loadNifsTemperature(p);
     const stillMissing=[['slnty','염분'],['crsp','해수 유속'],['crdir','유향']].filter(([key])=>!hasObservedValue(o[key])).map(([,label])=>label);
-    const refText=references.length?\` 인근 부이 참고: ${references.map(item=>`${item.label}=${item.name} 부이 · 약 ${item.distance}km · ${item.time}`).join(" / ")}\`:'';
-    const missingText=stillMissing.length?\` 해당 부이 미관측: ${stillMissing.join(", ")}\`:'';
-    el('status').textContent=\`조회 완료 — 실제 해양관측부이 최신 관측값.${refText}${missingText}\`;
+    const refText=references.length?` 인근 부이 참고: ${references.map(item=>`${item.label}=${item.name} 부이 · 약 ${item.distance}km · ${item.time}`).join(" / ")}`:'';
+    const missingText=stillMissing.length?` 해당 부이 미관측: ${stillMissing.join(", ")}`:'';
+    el('status').textContent=`조회 완료 — 실제 해양관측부이 최신 관측값.${refText}${missingText}`;
   }catch(error){el('status').textContent='API 연동 실패: '+error.message;['temp','sal','cur','dir'].forEach(id=>el(id).textContent='데이터 없음')}
 }
 
