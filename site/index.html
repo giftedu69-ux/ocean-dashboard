@@ -65,8 +65,19 @@ busanSites.forEach(p=>L.circleMarker([p.lat,p.lng],{radius:9,color:'#e07300',wei
   .addTo(map).bindPopup(`<b>${p.name}</b><br>부산 해양환경 측정망`).on('click',()=>loadBusanStation(p)));
 let busanMarinePromise;
 async function fetchBusanMarine(){
-  if(!busanMarinePromise)busanMarinePromise=fetch(`${API_BASE}/api/busan-marine`).then(async res=>{
-    const data=await res.json();if(!res.ok)throw new Error(data.detail||data.error||res.status);return data.stations||[];
+  if(!busanMarinePromise)busanMarinePromise=fetch('busan-marine.json',{cache:'no-store'}).then(async res=>{
+    const data=await res.json();
+    if(!res.ok||data.error)throw new Error(data.error||res.status);
+    const items=data.stations||data?.response?.body?.items?.item||[];
+    const newest=new Map();
+    items.forEach(item=>{
+      const name=item.name||item.site||item.siteNm||item.siteName||'';
+      if(!name)return;
+      const station={name,observedYear:item.observedYear||item.inspecYy||'',observedQuarter:item.observedQuarter||item.inspecQt||'',temperature:item.temperature??item.water14??null,salinity:item.salinity??item.water16??null,dissolvedOxygen:item.dissolvedOxygen??item.water13??null,quality:item.quality||item.water02||''};
+      const previous=newest.get(name),key=Number(station.observedYear)*10+Number(station.observedQuarter||0),oldKey=previous?Number(previous.observedYear)*10+Number(previous.observedQuarter||0):-1;
+      if(key>=oldKey)newest.set(name,station);
+    });
+    return [...newest.values()];
   }).catch(error=>{busanMarinePromise=null;throw error});
   return busanMarinePromise;
 }
