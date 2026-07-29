@@ -313,7 +313,7 @@ async function load(p){
     if(!res.ok)throw new Error(data.detail||data.error||res.status);if(!data.observation)throw new Error(data.message||'최신 관측값이 없습니다.');
     const o=data.observation;
     const references=await fillNearbyBuoyGaps(p,o);
-    el('time').textContent=o.obsrvnDt||'관측시각 미제공';el('temp').textContent=display(o.wtem,' °C');el('sal').textContent=display(o.slnty,' PSU');el('cur').textContent=display(o.crsp,' cm/s');el('dir').textContent=display(o.crdir,'°');
+    el('time').textContent=o.obsrvnDt||'관측시각 미제공';el('temp').textContent=display(o.wtem,' °C');el('sal').textContent=hasObservedValue(o.slnty)?display(o.slnty,' PSU'):'해당 부이 미관측';el('cur').textContent=hasObservedValue(o.crsp)?display(o.crsp,' cm/s'):'해당 부이 미관측';el('dir').textContent=hasObservedValue(o.crdir)?display(o.crdir,'°'):'해당 부이 미관측';
     updateSuitability(o);loadNifsTemperature(p);
     const stillMissing=[['slnty','염분'],['crsp','해수 유속'],['crdir','유향']].filter(([key])=>!hasObservedValue(o[key])).map(([,label])=>label);
     const refText=references.length?` 인근 부이 참고: ${references.map(item=>`${item.label}=${item.name} 부이 · 약 ${item.distance}km · ${item.time}`).join(" / ")}`:'';
