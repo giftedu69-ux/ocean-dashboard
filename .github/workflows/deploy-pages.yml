@@ -32,8 +32,8 @@ jobs:
           SERVICE_KEY: ${{ secrets.DATA_GO_KR_SERVICE_KEY }}
         run: |
           if [ -z "$SERVICE_KEY" ]; then
-            printf '{"response":{"body":{"items":{"item":[]}},"error":"GitHub Secret DATA_GO_KR_SERVICE_KEY가 없습니다."}' > site/busan-marine.json
-            exit 0
+            echo "GitHub Secret DATA_GO_KR_SERVICE_KEY가 없습니다." >&2
+            exit 1
           fi
           curl --fail --silent --show-error --get \
             'http://apis.data.go.kr/6260000/BusanMrnEnvrnInfoService/getMrnEnvrnInfo' \
