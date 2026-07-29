@@ -1,23 +1,18 @@
-const SERVICES = {
-  // operation 경로는 공공데이터포털 활용신청 화면의 "요청주소"와 다르면 그 값으로 바꾸세요.
-  temperature: 'https://apis.data.go.kr/1192000/apVhdService_Tgcw15/getOpnTgcw15',
-  salinity: 'https://apis.data.go.kr/1192000/apVhdService_Tgcsy15/getOpnTgcsy15',
-  current: 'https://apis.data.go.kr/1192000/apVhdService_ContOc15/getOpnContOc15',
-  grid2: 'https://apis.data.go.kr/1192000/apVhdService_G2s/getOpnG2sWFS'
+const OBSERVATION_API = 'https://apis.data.go.kr/1192136/twRecent/GetTWRecentApiService';
+const cors = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type'
 };
-const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type' };
-const json = (value, status = 200) => new Response(JSON.stringify(value), { status, headers: { ...cors, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
+const json = (value, status = 200) => new Response(JSON.stringify(value), {
+  status,
+  headers: { ...cors, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }
+});
 
-function valid(query) {
-  return /^GR2_[A-Z0-9]+$/.test(query.gridCd || '') && /^\d{8}$/.test(query.analsYmd || '') && /^\d{4}$/.test(query.analsTime || '');
-}
-async function fetchXml(url, params, key) {
-  const target = new URL(url);
-  target.search = new URLSearchParams({ serviceKey: key, ...params }).toString();
-  const response = await fetch(target, { headers: { Accept: 'application/xml, text/xml, */*' } });
-  const xml = await response.text();
-  if (!response.ok) throw new Error(`${response.status}: ${xml.slice(0, 300)}`);
-  return xml;
+function getItem(payload) {
+  const body = payload?.response?.body || payload?.body || {};
+  const item = body?.items?.item || body?.item;
+  return Array.isArray(item) ? item[0] : item;
 }
 
 export default {
@@ -25,19 +20,38 @@ export default {
     if (request.method === 'OPTIONS') return new Response(null, { headers: cors });
     const url = new URL(request.url);
     if (url.pathname === '/health') return json({ ok: true });
-    if (url.pathname !== '/api/ocean') return json({ error: 'Not found' }, 404);
+    if (url.pathname !== '/api/buoy') return json({ error: 'Not found' }, 404);
     if (!env.DATA_GO_KR_SERVICE_KEY) return json({ error: 'Worker secret DATA_GO_KR_SERVICE_KEY가 없습니다.' }, 500);
-    const params = Object.fromEntries(['gridCd', 'analsYmd', 'analsTime'].map(k => [k, url.searchParams.get(k) || '']));
-    if (!valid(params)) return json({ error: 'gridCd, analsYmd, analsTime 형식이 올바르지 않습니다.' }, 400);
+
+    const obsCode = url.searchParams.get('obsCode') || '';
+    if (!/^(TW|HB|YS|KG)_\d{4}$/.test(obsCode)) {
+      return json({ error: '유효하지 않은 관측소 코드입니다.' }, 400);
+    }
+
+    const target = new URL(OBSERVATION_API);
+    target.search = new URLSearchParams({
+      serviceKey: env.DATA_GO_KR_SERVICE_KEY,
+      type: 'json',
+      pageNo: '1',
+      numOfRows: '1',
+      obsCode,
+      reqDate: new Date().toISOString().slice(0, 10).replaceAll('-', ''),
+      min: '60'
+    }).toString();
+
     try {
-      // 수온·염분 API는 분석시간을 받지 않으며, 페이지 정보가 필수다.
-      const paged = { gridCd: params.gridCd, analsYmd: params.analsYmd, numOfRows: '1', pageNo: '1' };
-      const [temperature, salinity, current] = await Promise.all([
-        fetchXml(SERVICES.temperature, paged, env.DATA_GO_KR_SERVICE_KEY),
-        fetchXml(SERVICES.salinity, paged, env.DATA_GO_KR_SERVICE_KEY),
-        fetchXml(SERVICES.current, { ...paged, analsTime: params.analsTime }, env.DATA_GO_KR_SERVICE_KEY)
-      ]);
-      return json({ temperature, salinity, current });
-    } catch (error) { return json({ error: '공공 API 호출 실패', detail: error.message }, 502); }
+      const response = await fetch(target, { headers: { Accept: 'application/json' } });
+      const raw = await response.text();
+      if (!response.ok) throw new Error(`공공 API HTTP ${response.status}: ${raw.slice(0, 300)}`);
+      const payload = JSON.parse(raw);
+      const resultCode = payload?.response?.header?.resultCode || payload?.header?.resultCode;
+      const resultMsg = payload?.response?.header?.resultMsg || payload?.header?.resultMsg;
+      if (resultCode && resultCode !== '00') throw new Error(resultMsg || `공공 API 오류 ${resultCode}`);
+      const observation = getItem(payload);
+      if (!observation) return json({ observation: null, message: '해당 관측소의 최신 관측값이 없습니다.' });
+      return json({ observation });
+    } catch (error) {
+      return json({ error: '관측부이 API 호출 실패', detail: error.message }, 502);
+    }
   }
 };
