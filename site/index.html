@@ -28,10 +28,32 @@
     </aside><div id="species-modal" class="modal" aria-hidden="true"><div class="modal-card"><div class="modal-head"><span>🐟 전체 어종 적합도</span><button id="close-species-modal" class="modal-close" aria-label="닫기">×</button></div><div class="prediction-note">관측 환경 기반 참고용 지표이며 실제 어획량을 예측하지 않습니다.</div><div id="all-species"></div></div></div></section></main></div>
 <script>
 const API_BASE='https://ocean-data-proxy.chaeeecoma.workers.dev';
-const buoys=[{name:'속초해수욕장',code:'TW_0093',lat:38.198611,lng:128.631389},{name:'경포대해수욕장',code:'TW_0089',lat:37.808972,lng:128.931889},{name:'부산항',code:'TW_0087',lat:35.09175,lng:129.08525},{name:'여수항',code:'TW_0083',lat:34.794722,lng:127.808055},{name:'통영항',code:'TW_0084',lat:34.773333,lng:128.46},{name:'제주해협',code:'KG_0028',lat:33.700111,lng:126.5905}];
+// 큰 원은 실제 해양관측부이, 작은 원은 부산 연안의 선택 해역입니다.
+const buoys=[
+  {name:'속초해수욕장',code:'TW_0093',lat:38.198611,lng:128.631389},
+  {name:'경포대해수욕장',code:'TW_0089',lat:37.808972,lng:128.931889},
+  {name:'부산항',code:'TW_0087',lat:35.09175,lng:129.08525},
+  {name:'여수항',code:'TW_0083',lat:34.794722,lng:127.808055},
+  {name:'통영항',code:'TW_0084',lat:34.773333,lng:128.46},
+  {name:'제주해협',code:'KG_0028',lat:33.700111,lng:126.5905},
+  {name:'부산 북항',code:'TW_0087',lat:35.115,lng:129.043,reference:'부산항'},
+  {name:'영도·태종대',code:'TW_0087',lat:35.052,lng:129.087,reference:'부산항'},
+  {name:'오륙도 해역',code:'TW_0087',lat:35.098,lng:129.124,reference:'부산항'},
+  {name:'해운대 해역',code:'TW_0087',lat:35.159,lng:129.160,reference:'부산항'},
+  {name:'청사포 해역',code:'TW_0087',lat:35.160,lng:129.194,reference:'부산항'},
+  {name:'송정 해역',code:'TW_0087',lat:35.180,lng:129.202,reference:'부산항'},
+  {name:'기장 해역',code:'TW_0087',lat:35.187,lng:129.227,reference:'부산항'},
+  {name:'다대포 해역',code:'TW_0087',lat:35.046,lng:128.966,reference:'부산항'},
+  {name:'가덕도 해역',code:'TW_0087',lat:35.023,lng:128.830,reference:'부산항'},
+  {name:'명지·낙동강 하구',code:'TW_0087',lat:35.092,lng:128.906,reference:'부산항'}
+];
 const el=id=>document.getElementById(id), map=L.map('map').setView([35.6,127.8],7);
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18,attribution:'© OpenStreetMap'}).addTo(map);
-buoys.forEach(p=>L.circleMarker([p.lat,p.lng],{radius:25,color:'#0078c9',weight:4,fillColor:'#37b8ef',fillOpacity:.62}).addTo(map).bindPopup(`<b>${p.name}</b><br>${p.code}`).on('click',()=>load(p)));
+buoys.forEach(p=>{
+  const selectedArea=Boolean(p.reference);
+  L.circleMarker([p.lat,p.lng],{radius:selectedArea?11:25,color:selectedArea?'#00a887':'#0078c9',weight:selectedArea?3:4,fillColor:selectedArea?'#58d9bc':'#37b8ef',fillOpacity:.72})
+    .addTo(map).bindPopup(`<b>${p.name}</b><br>${selectedArea?'부산 연안 선택 해역 · ':''}${p.code}`).on('click',()=>load(p));
+});
 function display(v,unit=''){return v===undefined||v===null||v===''||v==='-'?'-':String(v)+unit}
 function distanceKm(a,b){const r=6371,d=Math.PI/180,dy=(b.lat-a.lat)*d,dx=(b.lng-a.lng)*d;const h=Math.sin(dy/2)**2+Math.cos(a.lat*d)*Math.cos(b.lat*d)*Math.sin(dx/2)**2;return 2*r*Math.asin(Math.sqrt(h))}
 async function loadNifsTemperature(point){const ids=['surface','middle','bottom'];ids.forEach(id=>el('nifs-'+id).textContent='조회 중');el('nifs-name').textContent='(수산과학원)';try{const res=await fetch(`${API_BASE}/api/nifs-temperature`),data=await res.json();if(!res.ok)throw new Error(data.detail||data.error||res.status);const stations=(data.stations||[]).filter(s=>s.layers&&Object.keys(s.layers).length);if(!stations.length)throw new Error('관측소 데이터 없음');const near=stations.reduce((best,s)=>!best||distanceKm(point,s)<distanceKm(point,best)?s:best,null);el('nifs-name').textContent=`(${near.name}, 최근접 ${distanceKm(point,near).toFixed(0)}km)`;ids.forEach(id=>el('nifs-'+id).textContent=display(near.layers[id],' °C'));}catch(error){el('nifs-name').textContent='(수산과학원 데이터 없음)';ids.forEach(id=>el('nifs-'+id).textContent='-')}}
@@ -46,5 +68,5 @@ function clearSuitability(){suitability=[];renderSuitability();el('prediction').
 el('show-all-species').addEventListener('click',()=>{el('species-modal').classList.add('open');el('species-modal').setAttribute('aria-hidden','false')});
 el('close-species-modal').addEventListener('click',()=>{el('species-modal').classList.remove('open');el('species-modal').setAttribute('aria-hidden','true')});
 el('species-modal').addEventListener('click',e=>{if(e.target===el('species-modal'))el('close-species-modal').click()});
-async function load(p){el('name').textContent=p.name;el('code').textContent=p.code;el('status').textContent='실제 관측값을 조회 중입니다…';['temp','sal','cur','dir'].forEach(id=>el(id).textContent='조회 중');['surface','middle','bottom'].forEach(id=>el('nifs-'+id).textContent='-');el('nifs-name').textContent='조회 중';clearSuitability();try{const res=await fetch(`${API_BASE}/api/buoy?obsCode=${encodeURIComponent(p.code)}`),data=await res.json();if(!res.ok)throw new Error(data.detail||data.error||res.status);if(!data.observation)throw new Error(data.message||'최신 관측값이 없습니다.');const o=data.observation;el('time').textContent=o.obsrvnDt||'관측시각 미제공';el('temp').textContent=display(o.wtem,' °C');el('sal').textContent=display(o.slnty,' PSU');el('cur').textContent=display(o.crsp,' cm/s');el('dir').textContent=display(o.crdir,'°');updateSuitability(o);loadNifsTemperature(p);el('status').textContent='조회 완료 — 실제 해양관측부이 최신 관측값';}catch(error){el('status').textContent='API 연동 실패: '+error.message;['temp','sal','cur','dir'].forEach(id=>el(id).textContent='데이터 없음')}}
+async function load(p){el('name').textContent=p.name;el('code').textContent=p.code;el('status').textContent='실제 관측값을 조회 중입니다…';['temp','sal','cur','dir'].forEach(id=>el(id).textContent='조회 중');['surface','middle','bottom'].forEach(id=>el('nifs-'+id).textContent='-');el('nifs-name').textContent='조회 중';clearSuitability();try{const res=await fetch(`${API_BASE}/api/buoy?obsCode=${encodeURIComponent(p.code)}`),data=await res.json();if(!res.ok)throw new Error(data.detail||data.error||res.status);if(!data.observation)throw new Error(data.message||'최신 관측값이 없습니다.');const o=data.observation;el('time').textContent=o.obsrvnDt||'관측시각 미제공';el('temp').textContent=display(o.wtem,' °C');el('sal').textContent=display(o.slnty,' PSU');el('cur').textContent=display(o.crsp,' cm/s');el('dir').textContent=display(o.crdir,'°');updateSuitability(o);loadNifsTemperature(p);el('status').textContent=p.reference?`조회 완료 — ${p.reference} 해양관측부이 최신값을 참고로 표시합니다.`:'조회 완료 — 실제 해양관측부이 최신 관측값';}catch(error){el('status').textContent='API 연동 실패: '+error.message;['temp','sal','cur','dir'].forEach(id=>el(id).textContent='데이터 없음')}}
 </script></body></html>
