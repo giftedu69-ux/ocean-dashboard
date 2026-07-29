@@ -10,8 +10,8 @@
     *{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif;color:var(--text);background:#fff}
     .topbar{height:73px;background:var(--navy);color:#fff;display:flex;align-items:center;padding:0 28px;gap:13px;box-shadow:0 2px 7px #0016;position:relative;z-index:10}
     .brand-icon{width:27px;height:27px;object-fit:contain}.brand{font-size:22px;font-weight:800;letter-spacing:-.7px}.live{background:#087ff1;border-radius:999px;font-size:14px;font-weight:800;padding:5px 10px}
-    .shell{display:grid;grid-template-columns:76px minmax(0,1fr);height:calc(100vh - 73px)}
-    .sidebar{background:var(--side);border-right:1px solid #d7e9f3;padding-top:17px}.nav-item{color:#0075c8;font-size:14px;font-weight:800;display:flex;align-items:center;gap:6px;padding:8px 14px;white-space:nowrap}
+    .shell{display:grid;grid-template-columns:210px minmax(0,1fr);height:calc(100vh - 73px)}
+    .sidebar{background:var(--side);border-right:1px solid #d7e9f3;padding:14px 10px;overflow-y:auto}.nav-item{color:#0075c8;font-size:14px;font-weight:800;display:flex;align-items:center;gap:6px;padding:8px 6px;white-space:nowrap}.region-title{font-size:12px;color:#527087;font-weight:850;margin:14px 6px 7px}.region-group{margin-bottom:5px}.region-button{width:100%;border:0;border-radius:8px;background:transparent;color:#123651;font-weight:800;text-align:left;padding:9px 10px;cursor:pointer;font-size:14px}.region-button:hover,.region-button.active{background:#d4edfb;color:#0075c8}.station-list{display:none;padding:3px 0 6px 10px}.region-group.open .station-list{display:block}.station-button{display:block;width:100%;border:0;background:transparent;color:#42627a;text-align:left;padding:6px 8px;border-radius:6px;font-size:13px;cursor:pointer}.station-button:hover{background:#fff;color:#0075c8;font-weight:800}
     .workspace{padding:13px;min-width:0}.map-wrap{position:relative;height:100%;min-height:500px;border-radius:15px;overflow:hidden;background:#d1ebf5}#map{width:100%;height:100%;min-height:500px}
     .info-panel{position:absolute;z-index:500;right:18px;top:18px;width:min(355px,calc(100% - 36px));background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 7px 22px #173b5824;padding:22px;max-height:calc(100% - 36px);overflow-y:auto}
     .eyebrow{font-weight:800;color:#0875c8;font-size:14px;margin-bottom:8px}.time{font-size:15px;color:#5b7185}.station{font-size:28px;letter-spacing:-1px;margin:22px 0 16px;color:#091f33}.data-row{border-top:1px solid #e6eef5;padding:13px 0;font-size:16px}.value{font-weight:800;color:#0076cc}.status{margin-top:18px;border-radius:10px;background:#f0f8ff;color:#1870af;padding:13px;font-size:14px}
@@ -21,7 +21,7 @@
 </head>
 <body>
   <header class="topbar"><img class="brand-icon" alt="BlueCurrent 해양 아이콘" src="app-icon.svg"><div class="brand">BlueCurrent</div><span class="live">AI Live</span></header>
-  <div class="shell"><nav class="sidebar"><div class="nav-item">🗺️ 지도</div></nav><main class="workspace"><section class="map-wrap"><div id="map"></div><div class="map-legend"><i></i>인근 부이 참고 영역 · 반경 25km</div>
+  <div class="shell"><nav class="sidebar"><div class="nav-item">🗺️ 지도</div><div class="region-title">지역별 부이</div><div id="region-menu"></div></nav><main class="workspace"><section class="map-wrap"><div id="map"></div><div class="map-legend"><i></i>인근 부이 참고 영역 · 반경 25km</div>
     <aside class="info-panel"><div id="time-section"><div class="eyebrow">관측 시각</div><div id="time" class="time">관측소를 선택하세요.</div></div><h1 id="name" class="station">해양관측부이를 선택하세요</h1>
       <div class="data-row">관측소 코드: <span id="code" class="value">-</span></div><div class="data-row">관측부이 수온: <span id="temp" class="value">-</span></div><div class="data-row"><div>어장 수온 <span id="nifs-name" class="muted">조회 전</span></div><div class="nifs-layers">표층 <span id="nifs-surface">-</span> · 중층 <span id="nifs-middle">-</span> · 저층 <span id="nifs-bottom">-</span></div></div><div class="data-row"><span id="sal-label">염분</span>: <span id="sal" class="value">-</span></div><div class="data-row"><span id="cur-label">해수 유속</span>: <span id="cur" class="value">-</span></div><div class="data-row"><span id="dir-label">유향</span>: <span id="dir" class="value">-</span></div><div id="status" class="status">실제 해양관측부이 원을 클릭하면 최신 관측값을 조회합니다.</div>
       <section id="prediction" class="prediction empty"><div class="prediction-title">🐟 어종 출현 적합도</div><div class="prediction-note">수온·염분·해수 유속 기준의 참고용 적합도입니다. 상위 3종을 표시합니다.</div><div id="top-species"></div><button id="show-all-species" class="all-species" disabled>전체 11종 보기</button></section>
@@ -59,9 +59,30 @@ L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18,attribu
 const buoyIcon=L.divIcon({className:'',html:'<div class="buoy-pin"><span></span></div>',iconSize:[28,28],iconAnchor:[14,28],popupAnchor:[0,-25]});
 buoys.forEach(p=>{
   L.circle([p.lat,p.lng],{radius:25000,color:'#0786ed',weight:1.5,opacity:.7,fillColor:'#58bff2',fillOpacity:.13,interactive:false}).addTo(map);
-  L.marker([p.lat,p.lng],{icon:buoyIcon,title:`${p.name} 해양관측부이`})
+  p.marker=L.marker([p.lat,p.lng],{icon:buoyIcon,title:`${p.name} 해양관측부이`})
   .addTo(map).bindPopup(`<b>${p.name}</b><br>해양관측부이 · ${p.code}`).bindTooltip('해양관측부이 · 점 위치',{direction:'top',offset:[0,-28]}).on('click',()=>load(p));
 });
+
+const regions=[
+  {name:'동해',codes:['TW_0093','TW_0091','TW_0089','TW_0094','TW_0095']},
+  {name:'부산권',codes:['TW_0092','TW_0090','TW_0087','TW_0088','TW_0086']},
+  {name:'남해',codes:['TW_0085','TW_0084','TW_0083','TW_0074','KG_0025']},
+  {name:'서해',codes:['TW_0080','TW_0072','TW_0069','TW_0082','TW_0070']},
+  {name:'제주권',codes:['TW_0075','KG_0021']}
+];
+function renderRegionMenu(){
+  const menu=el('region-menu');
+  regions.forEach(region=>{
+    const points=region.codes.map(code=>buoys.find(p=>p.code===code)).filter(Boolean);
+    const group=document.createElement('div');group.className='region-group';
+    const main=document.createElement('button');main.className='region-button';main.textContent=`${region.name} ▾`;
+    main.addEventListener('click',()=>{const willOpen=!group.classList.contains('open');menu.querySelectorAll('.region-group').forEach(g=>g.classList.remove('open'));if(willOpen)group.classList.add('open')});
+    const list=document.createElement('div');list.className='station-list';
+    points.forEach(p=>{const button=document.createElement('button');button.className='station-button';button.textContent=p.name;button.addEventListener('click',()=>{map.flyTo([p.lat,p.lng],10,{duration:.65});p.marker.openPopup();load(p)});list.appendChild(button)});
+    group.append(main,list);menu.appendChild(group);
+  });
+}
+renderRegionMenu();
 
 async function addNifsMarkers(){
   try{
